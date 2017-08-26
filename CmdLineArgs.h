@@ -8,5 +8,8 @@ struct CmdLineArgs
 {
     //! The file we're going to fetch
     std::string url;
+
+    //! The to which we'll write
+    std::string outFile;
 };
 #endif // CMD_LINE_ARGS_H
