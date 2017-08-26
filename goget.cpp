@@ -2,6 +2,8 @@
 #include <stdio.h>
 
 #include <boost/program_options.hpp>
+#include <boost/network/uri.hpp>
+
 namespace po = boost::program_options;
 
 CmdLineArgs GetArgsFromCmdLine(int argc, char** argv)
@@ -47,8 +49,16 @@ int main(int argc, char** argv)
 {
     CmdLineArgs args = GetArgsFromCmdLine(argc, argv);
 
-    printf("Getting '%s', writing to '%s'\n",
-            args.url.c_str(),
+    boost::network::uri::uri toGet(args.url);
+    if(!toGet.is_valid())
+    {
+        printf("URL '%s' is not valid.\n", args.url.c_str());
+        exit(1);
+    }
+
+    printf("Getting '%s' from '%s', writing to '%s'\n",
+            toGet.path().c_str(),
+            toGet.host().c_str(),
             args.outFile.c_str());
 
     return 0;

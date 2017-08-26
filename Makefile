@@ -9,8 +9,9 @@ OBJS := \
 	goget.o \
 
 STDLIBS := \
-	net-cpp \
+	cppnetlib-uri \
 	boost_program_options \
+	boost_system \
 
 
 
