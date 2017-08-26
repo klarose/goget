@@ -10,6 +10,8 @@ OBJS := \
 
 STDLIBS := \
 	net-cpp \
+	boost_program_options \
+
 
 
 %.o: %.cpp
