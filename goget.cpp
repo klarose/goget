@@ -1,14 +1,19 @@
 #include "ParseArgs.h"
+#include "HttpStringRequest.h"
+#include "AsyncResponseStream.h"
+#include "HttpResponseStreamer.h"
+#include <fstream>
 
 #include <stdio.h>
 #include <cstring>
+#include <unistd.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 
 
-bool ConnectToURI(const CmdLineArgs& args)
+int ConnectToURI(const CmdLineArgs& args)
 {
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -23,7 +28,7 @@ bool ConnectToURI(const CmdLineArgs& args)
 	if (ret != 0)
     {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
-        return false;
+        return -1;
 	}
 
     int socketFd = socket(result->ai_family,
@@ -33,7 +38,7 @@ bool ConnectToURI(const CmdLineArgs& args)
     if(socketFd < 0)
     {
         perror("socket");
-        return false;
+        return -1;
     }
     
     int connectResult = connect(socketFd,
@@ -42,10 +47,10 @@ bool ConnectToURI(const CmdLineArgs& args)
     if(connectResult != 0)
     {
         perror("connect");
-        return false;
+        return -1;
     }
 
-    return true;
+    return socketFd;
 }
 
 int main(int argc, char** argv)
@@ -68,15 +73,67 @@ int main(int argc, char** argv)
             args.port.c_str(),
             args.outFile.c_str());
 
-    bool connected = ConnectToURI(args);
-    if(connected)
+    int fd = ConnectToURI(args);
+    if(fd >= 0)
     {
         printf("Successfully connected\n");
     }
     else
     {
         printf("Failed to connect\n");
+        return -1;
     }
+
+    HttpStringRequest request(args.pathToFetch);
+    request.AddHeader("Host: " + args.hostName);
+    request.AddHeader("Range: bytes=0-1023");
+    
+    for(const auto& line : request.GetRequest())
+    {
+        int ret = send(fd, line.c_str(), line.length(), 0);
+        if(ret >= 0 && static_cast<size_t>(ret) < line.length())
+        {
+            printf("Failed to send all the bytes: %i", ret);
+            return -1;
+        }
+        else if(ret < 0)
+        {
+            perror("send");
+            return -1;
+        }
+    }
+    
+    char buf[8192];
+    int received = 0;
+    AsyncResponseStream stream;
+    HttpResponseStreamer response(stream);
+    received = recv(fd, &buf, sizeof(buf), 0);
+    stream.ProduceData(std::string(buf, received));
+    printf("%s", buf);
+
+    while(!response.HasError() && !response.HeadersDone())
+    {
+        response.HandleNewData();
+    }
+    
+    std::fstream output;
+
+    output.open(args.outFile, std::fstream::out | std::fstream::binary);
+    output.seekp(4096);
+    do
+    {
+        std::string data = response.GetDataChunk();
+        output << data;
+        if(data.empty())
+        {
+            received = recv(fd, &buf, sizeof(buf), 0);
+            printf("Received an extra %i data\n", received);
+            stream.ProduceData(std::string(buf, received));
+        }
+
+    } while(!response.IsComplete());
+
+    printf("Length: %u\n", (uint32_t)response.GetContentLength());
 
     return 0;
 }

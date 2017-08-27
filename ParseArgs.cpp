@@ -89,7 +89,6 @@ bool ParseArgs::DecomposeUrl()
 
     m_args.url = m_url;
     m_args.hostName = toGet.host();
-    m_args.pathToFetch = toGet.path();
 
     // get the optional port
     m_args.port = "80";
@@ -97,6 +96,14 @@ bool ParseArgs::DecomposeUrl()
     if(!toGet.port().empty())
     {
         m_args.port = toGet.port();
+    }
+    
+    // get the optional path
+    m_args.pathToFetch = "/";
+
+    if(!toGet.path().empty())
+    {
+        m_args.pathToFetch = toGet.path();
     }
 
     return true;
