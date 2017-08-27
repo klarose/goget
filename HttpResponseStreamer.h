@@ -22,6 +22,8 @@ public:
     bool IsComplete() const;
 
     std::string GetDataChunk();
+
+    const std::string&  GetError() const;
 private:
 
     enum class ResponseState
@@ -40,6 +42,8 @@ private:
     uint64_t m_dataRead = 0;
 
     AsyncResponseStream& m_stream;
+
+    std::string m_error;
 
     bool HandleInit();
     bool HandleVersion();

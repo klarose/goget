@@ -38,5 +38,7 @@ private:
     bool ConnectToURI();
 
     std::vector<char> m_receiveBuffer;
+
+    bool m_loggedError;
 };
 #endif // CHUNK_RECEIVER_H

@@ -17,7 +17,8 @@ ChunkReceiver::ChunkReceiver(const CmdLineArgs& args,
     m_httpResponse(m_stream),
     m_error(false),
     m_socketFd(-1),
-    m_receiveBuffer(8192)
+    m_receiveBuffer(16384),
+    m_loggedError(false)
 {
 }
 
@@ -81,8 +82,10 @@ void ChunkReceiver::ProcessResponse()
         }
     }
 
-    if(m_httpResponse.HasError())
+    if(m_httpResponse.HasError() && !m_loggedError)
     {
+        printf("Error with response for chunk starting at %" PRIu64 " %s\n", m_fileOffset, m_httpResponse.GetError().c_str());
+        m_loggedError = true;
         return;
     }
 

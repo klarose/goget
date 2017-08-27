@@ -59,6 +59,24 @@ bool HttpResponseStreamer::IsComplete() const
     return m_state == ResponseState::DONE;
 }
 
+std::string HttpResponseStreamer::GetDataChunk()
+{
+    std::string chunk = m_stream.ReadRawData();
+    m_dataRead += chunk.size();
+
+    if(m_dataRead >= m_contentLength)
+    {
+        m_state = ResponseState::DONE;
+    }
+
+    return chunk;
+}
+
+const std::string& HttpResponseStreamer::GetError() const
+{
+    return m_error;
+}
+
 bool HttpResponseStreamer::HandleInit()
 {
     std::pair<bool, std::string> result = m_stream.ReadUntil(" ");
@@ -76,7 +94,15 @@ bool HttpResponseStreamer::HandleVersion()
     std::pair<bool, std::string> result = m_stream.ReadUntil(" ");
     if(result.first)
     {
-        m_state = ResponseState::HAVE_CODE;
+        if(result.second == "206")
+        {
+            m_state = ResponseState::HAVE_CODE;
+        }
+        else
+        {
+            m_error = "Invalid response code: " + result.second;
+            m_state = ResponseState::ERROR;
+        }
         return true;
     }
 
@@ -109,7 +135,7 @@ bool HttpResponseStreamer::HandleCode()
     }
     catch(const std::invalid_argument& e)
     {
-        printf("Content-Length was invalid\n");
+        m_error = "Content-Length was invalid";
         m_state = ResponseState::ERROR;
         return true;
     }
@@ -133,17 +159,4 @@ bool HttpResponseStreamer::HandleLength()
     }
 
     return false;
-}
-
-std::string HttpResponseStreamer::GetDataChunk()
-{
-    std::string chunk = m_stream.ReadRawData();
-    m_dataRead += chunk.size();
-
-    if(m_dataRead >= m_contentLength)
-    {
-        m_state = ResponseState::DONE;
-    }
-
-    return chunk;
 }
