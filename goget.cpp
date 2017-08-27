@@ -72,68 +72,87 @@ int main(int argc, char** argv)
             args.hostName.c_str(),
             args.port.c_str(),
             args.outFile.c_str());
-
-    int fd = ConnectToURI(args);
-    if(fd >= 0)
-    {
-        printf("Successfully connected\n");
-    }
-    else
-    {
-        printf("Failed to connect\n");
-        return -1;
-    }
-
-    HttpStringRequest request(args.pathToFetch);
-    request.AddHeader("Host: " + args.hostName);
-    request.AddHeader("Range: bytes=0-1023");
     
-    for(const auto& line : request.GetRequest())
+    std::vector<int> fds;
+    std::vector<HttpStringRequest> requests;
+    std::vector<AsyncResponseStream> responseStreams;
+    std::vector<HttpResponseStreamer> httpResponses;
+
+    for(int i = 0; i < 4; ++i)
     {
-        int ret = send(fd, line.c_str(), line.length(), 0);
-        if(ret >= 0 && static_cast<size_t>(ret) < line.length())
+        int fd = ConnectToURI(args);
+        if(fd < 0)
         {
-            printf("Failed to send all the bytes: %i", ret);
+            printf("Failed to connect\n");
             return -1;
         }
-        else if(ret < 0)
-        {
-            perror("send");
-            return -1;
-        }
+        
+        uint64_t start = i * 1024 * 1024;
+        uint64_t end = ((i+1) * 1024 * 1024) - 1;
+        fds.push_back(fd);
+        HttpStringRequest request(args.pathToFetch);
+        request.AddHeader("Host: " + args.hostName);
+        request.AddHeader("Range: bytes=" + std::to_string(start) + "-" + std::to_string(end));
+        requests.push_back(request); 
+        responseStreams.push_back(AsyncResponseStream());
     }
     
-    char buf[8192];
-    int received = 0;
-    AsyncResponseStream stream;
-    HttpResponseStreamer response(stream);
-    received = recv(fd, &buf, sizeof(buf), 0);
-    stream.ProduceData(std::string(buf, received));
-    printf("%s", buf);
-
-    while(!response.HasError() && !response.HeadersDone())
+    for(int i = 0; i < requests.size(); ++i)
     {
-        response.HandleNewData();
+        HttpStringRequest &request = requests[i];
+        for(const auto& line : request.GetRequest())
+        {
+            int ret = send(fds[i], line.c_str(), line.length(), 0);
+            if(ret >= 0 && static_cast<size_t>(ret) < line.length())
+            {
+                printf("Failed to send all the bytes: %i", ret);
+                return -1;
+            }
+            else if(ret < 0)
+            {
+                perror("send");
+                return -1;
+            }
+        }
+        httpResponses.emplace_back(std::move(HttpResponseStreamer(responseStreams[i])));
     }
     
     std::fstream output;
 
     output.open(args.outFile, std::fstream::out | std::fstream::binary);
-    output.seekp(4096);
-    do
+    for(int i = 0; i < 4; ++i)
     {
-        std::string data = response.GetDataChunk();
-        output << data;
-        if(data.empty())
+        AsyncResponseStream &stream = responseStreams[i];
+        HttpResponseStreamer &response = httpResponses[i];
+        char buf[8192];
+        int received = 0;
+        received = recv(fds[i], &buf, sizeof(buf), 0);
+        printf("Received %i\n", received);
+        printf("%s", buf);
+        stream.ProduceData(std::string(buf, received));
+
+        while(!response.HasError() && !response.HeadersDone())
         {
-            received = recv(fd, &buf, sizeof(buf), 0);
-            printf("Received an extra %i data\n", received);
-            stream.ProduceData(std::string(buf, received));
+            response.HandleNewData();
         }
 
-    } while(!response.IsComplete());
+        printf("Length: %u\n", (uint32_t)response.GetContentLength());
+        
+        output.seekp(i * 1024 * 1024);
+        do
+        {
+            std::string data = response.GetDataChunk();
+            output << data;
+            if(data.empty())
+            {
+                received = recv(fds[i], &buf, sizeof(buf), 0);
+                printf("Received an extra %i data\n", received);
+                stream.ProduceData(std::string(buf, received));
+            }
 
-    printf("Length: %u\n", (uint32_t)response.GetContentLength());
+        } while(!response.IsComplete());
+
+    }
 
     return 0;
 }

@@ -1,7 +1,7 @@
 CC ?= g++
 
 CSTD := -std=c++14
-CFLAGS = -Wall $(CSTD) $(CMDCFLAGS)
+CFLAGS = -Wall $(CSTD) $(CMDCFLAGS) -g
 
 LDFLAGS := -lstdc++
 
