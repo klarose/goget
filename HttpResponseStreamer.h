@@ -10,7 +10,9 @@ class HttpResponseStreamer
 public:
     HttpResponseStreamer(AsyncResponseStream& stream);
 
-    void HandleNewData();
+    //! @return true if the streamer consumed any new data,
+    //! false if waiting or more data
+    bool HandleNewData();
 
     bool HasError() const;
 
@@ -39,9 +41,9 @@ private:
 
     AsyncResponseStream& m_stream;
 
-    void HandleInit();
-    void HandleVersion();
-    void HandleCode();
-    void HandleLength();
+    bool HandleInit();
+    bool HandleVersion();
+    bool HandleCode();
+    bool HandleLength();
 };
 #endif // HTTP_RESPONSE_STREAMER_H

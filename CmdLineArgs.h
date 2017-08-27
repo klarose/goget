@@ -20,5 +20,11 @@ struct CmdLineArgs
 
     //! The to which we'll write
     std::string outFile;
+
+    //! The size of the chunks to download
+    uint64_t chunkSize;
+
+    //! How many chunks to download
+    uint64_t numChunks;
 };
 #endif // CMD_LINE_ARGS_H

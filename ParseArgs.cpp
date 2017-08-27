@@ -9,6 +9,9 @@ namespace po = boost::program_options;
 ParseArgs::ParseArgs(int argc, char** argv):
     m_argumentsValid(false)
 {
+    m_args.numChunks = 4;
+    m_args.chunkSize = 1024 * 1024;
+
     if(ParseUrlAndFile(argc, argv))
     {
         m_args.outFile = m_file;
@@ -37,6 +40,8 @@ bool ParseArgs::ParseUrlAndFile(int argc, char** argv)
     po::options_description desc("options");
     desc.add_options()
         ("url", po::value<std::string>(),  "The url to fetch")
+        ("chunk-size", po::value<uint64_t>(),  "Size of the chunks to fetch")
+        ("num-chunks", po::value<uint64_t>(),  "The number of chunks to fetch")
         ("out", po::value<std::string>(),  "The file to write");
 
     po::variables_map vars;
@@ -64,6 +69,15 @@ bool ParseArgs::ParseUrlAndFile(int argc, char** argv)
         return false;
     }
 
+    if(vars.count("chunk-size") > 0)
+    {
+        m_args.chunkSize= vars["chunk-size"].as<uint64_t>();
+    }
+
+    if(vars.count("num-chunks") > 0)
+    {
+        m_args.numChunks= vars["num-chunks"].as<uint64_t>();
+    }
     // parse out the url so we can build the argument struct
     m_url = vars["url"].as<std::string>();
     m_file = vars["out"].as<std::string>();

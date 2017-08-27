@@ -8,6 +8,7 @@ LDFLAGS := -lstdc++
 OBJS := \
 	goget.o \
 	AsyncResponseStream.o \
+	ChunkReceiver.o \
 	HttpResponseStreamer.o \
 	HttpStringRequest.o \
 	ParseArgs.o \

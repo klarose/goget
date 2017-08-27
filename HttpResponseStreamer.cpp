@@ -7,29 +7,25 @@ HttpResponseStreamer::HttpResponseStreamer(AsyncResponseStream& stream):
     
 }
 
-void HttpResponseStreamer::HandleNewData()
+bool HttpResponseStreamer::HandleNewData()
 {
     switch(m_state)
     {
         case ResponseState::INIT:
         {
-            HandleInit();
-            break;
+            return HandleInit();
         }
         case ResponseState::HAVE_VERSION:
         {
-            HandleVersion();
-            break;
+            return HandleVersion();
         }
         case ResponseState::HAVE_CODE:
         {
-            HandleCode();
-            break;
+            return HandleCode();
         }
         case ResponseState::HAVE_LENGTH:
         {
-            HandleLength();
-            break;
+            return HandleLength();
         }
         case ResponseState::DONE_HEADERS:
         case ResponseState::DONE:
@@ -39,6 +35,8 @@ void HttpResponseStreamer::HandleNewData()
             break;
         }
     }
+
+    return false;
 }
 
 bool HttpResponseStreamer::HasError() const
@@ -61,33 +59,38 @@ bool HttpResponseStreamer::IsComplete() const
     return m_state == ResponseState::DONE;
 }
 
-void HttpResponseStreamer::HandleInit()
+bool HttpResponseStreamer::HandleInit()
 {
     std::pair<bool, std::string> result = m_stream.ReadUntil(" ");
     if(result.first)
     {
         m_state = ResponseState::HAVE_VERSION;
+        return true;
     }
-       
+
+    return false;
 }
 
-void HttpResponseStreamer::HandleVersion()
+bool HttpResponseStreamer::HandleVersion()
 {
     std::pair<bool, std::string> result = m_stream.ReadUntil(" ");
     if(result.first)
     {
         m_state = ResponseState::HAVE_CODE;
+        return true;
     }
+
+    return false;
 }
 
-void HttpResponseStreamer::HandleCode()
+bool HttpResponseStreamer::HandleCode()
 {
     // now we're going to read full lines until we get the conent-length
     // header
     std::pair<bool, std::string> result = m_stream.ReadUntil("\r\n");
     if(!result.first)
     {
-        return;
+        return false;
     }
 
     const std::string& line = result.second;
@@ -95,7 +98,8 @@ void HttpResponseStreamer::HandleCode()
     size_t loc = line.find(headerSearch);
     if(loc == std::string::npos)
     {
-        return;
+        // not content length. Skip this header.
+        return true;
     }
 
     std::string length = line.substr(headerSearch.length());
@@ -105,14 +109,17 @@ void HttpResponseStreamer::HandleCode()
     }
     catch(const std::invalid_argument& e)
     {
+        printf("Content-Length was invalid\n");
         m_state = ResponseState::ERROR;
-        return;
+        return true;
     }
 
     m_state = ResponseState::HAVE_LENGTH;
+
+    return true;
 }
 
-void HttpResponseStreamer::HandleLength()
+bool HttpResponseStreamer::HandleLength()
 {
     //read until the body
     std::pair<bool, std::string> result = m_stream.ReadUntil("\r\n");
@@ -122,7 +129,10 @@ void HttpResponseStreamer::HandleLength()
     if(result.first && result.second.empty())
     {
         m_state = ResponseState::DONE_HEADERS;
+        return true;
     }
+
+    return false;
 }
 
 std::string HttpResponseStreamer::GetDataChunk()
