@@ -9,6 +9,15 @@ struct CmdLineArgs
     //! The file we're going to fetch
     std::string url;
 
+    //! The host to get the file from
+    std::string hostName;
+
+    //! The port at which the http server lives
+    std::string port;
+
+    //! The path on the host to get
+    std::string pathToFetch;
+
     //! The to which we'll write
     std::string outFile;
 };

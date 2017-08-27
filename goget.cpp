@@ -1,56 +1,14 @@
-#include "CmdLineArgs.h"
-#include <stdio.h>
+#include "ParseArgs.h"
 
-#include <boost/program_options.hpp>
-#include <boost/network/uri.hpp>
+#include <stdio.h>
+#include <cstring>
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 
 
-namespace po = boost::program_options;
-
-CmdLineArgs GetArgsFromCmdLine(int argc, char** argv)
-{
-    CmdLineArgs args;
-
-    po::options_description desc("options");
-    desc.add_options()
-        ("url", po::value<std::string>(),  "The url to fetch")
-        ("out", po::value<std::string>(),  "The file to write");
-
-    po::variables_map vars;
-    try
-    {
-        po::store(po::parse_command_line(argc, argv, desc), vars);
-        po::notify(vars); 
-    }
-    catch(const std::exception& e)
-    {
-        printf("%s\n", e.what());
-        exit(1);
-    }
-
-    if(vars.count("url") != 1)
-    {
-        printf("Exactly one 'url' must be provided.\n");
-        exit(1);
-    }
-
-    if(vars.count("out") != 1)
-    {
-        printf("Exactly one output file must be provided.\n");
-        exit(1);
-    }
-
-    args.url = vars["url"].as<std::string>();
-    args.outFile = vars["out"].as<std::string>();
-
-    return args;
-}
-
-bool ConnectToURI(const boost::network::uri::uri& uri)
+bool ConnectToURI(const CmdLineArgs& args)
 {
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -60,7 +18,7 @@ bool ConnectToURI(const boost::network::uri::uri& uri)
 	hints.ai_protocol = 0;          /* Any protocol */
 
 	struct addrinfo *result = nullptr;
-	int ret = getaddrinfo(uri.host().c_str(), "80", &hints, &result);
+	int ret = getaddrinfo(args.hostName.c_str(), args.port.c_str(), &hints, &result);
 
 	if (ret != 0)
     {
@@ -92,21 +50,25 @@ bool ConnectToURI(const boost::network::uri::uri& uri)
 
 int main(int argc, char** argv)
 {
-    CmdLineArgs args = GetArgsFromCmdLine(argc, argv);
+    ParseArgs parser(argc, argv);
 
-    boost::network::uri::uri toGet(args.url);
-    if(!toGet.is_valid())
+    if(!parser.AreArgsValid())
     {
-        printf("URL '%s' is not valid.\n", args.url.c_str());
+        printf("Error parsing command line: %s\n", parser.GetErrorMessage().c_str());
         exit(1);
     }
 
-    printf("Getting '%s' from '%s', writing to '%s'\n",
-            toGet.path().c_str(),
-            toGet.host().c_str(),
+    const CmdLineArgs& args = parser.GetParsedArgs();
+
+    printf("Url: %s\n", args.url.c_str());
+
+    printf("Getting '%s' from '%s' port '%s', writing to '%s'\n",
+            args.pathToFetch.c_str(),
+            args.hostName.c_str(),
+            args.port.c_str(),
             args.outFile.c_str());
 
-    bool connected = ConnectToURI(toGet);
+    bool connected = ConnectToURI(args);
     if(connected)
     {
         printf("Successfully connected\n");

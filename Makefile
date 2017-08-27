@@ -7,6 +7,7 @@ LDFLAGS := -lstdc++
 
 OBJS := \
 	goget.o \
+	ParseArgs.o \
 
 STDLIBS := \
 	cppnetlib-uri \
