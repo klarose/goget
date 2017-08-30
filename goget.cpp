@@ -23,11 +23,11 @@ int main(int argc, char** argv)
             args.port.c_str(),
             args.outFile.c_str());
     
-    
+
     std::fstream output;
 
-    output.open(args.outFile, std::fstream::out | std::fstream::binary);
-
+    // Break the request up into chunks according to the configuration. 
+    // Send the request at the same time.
     std::vector<std::unique_ptr<ChunkReceiver>> receivers;
     for(uint32_t i = 0; i < args.numChunks; ++i)
     {
@@ -40,6 +40,10 @@ int main(int argc, char** argv)
             return -1;
         }
     }
+
+
+    // Open the file and stream until all chunks indicate they are complete.
+    output.open(args.outFile, std::fstream::out | std::fstream::binary);
 
     bool allComplete = false;
     while(!allComplete)

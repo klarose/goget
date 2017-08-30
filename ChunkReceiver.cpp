@@ -15,7 +15,6 @@ ChunkReceiver::ChunkReceiver(const CmdLineArgs& args,
     m_fileOffset(offset),
     m_outputStream(outputStream),
     m_httpResponse(m_stream),
-    m_error(false),
     m_socketFd(-1),
     m_receiveBuffer(16384),
     m_loggedError(false)

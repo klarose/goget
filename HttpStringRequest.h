@@ -19,6 +19,9 @@ public:
     //!               as newlines.
     void AddHeader(const std::string& header);
 
+    //! @return the request with each header in a separate entry of the vector.
+    //! Note that the headers are terminated with the appropiate line ending,
+    //! and that the 'terminating' line ending will be at the end of the vector.
     const std::vector<std::string>& GetRequest() const;
 
 private:
