@@ -150,13 +150,20 @@ bool HttpResponseStreamer::HandleLength()
     //read until the body
     std::pair<bool, std::string> result = m_stream.ReadUntil("\r\n");
 
-    // if we find the end of line, and it's empty, it means we've been signaled
-    // that the headers are done
-    if(result.first && result.second.empty())
-    {
-        m_state = ResponseState::DONE_HEADERS;
-        return true;
-    }
 
+    // Consume headers until we don't find one, or it's empty.
+    // If it's empty, we know that the headers are complete.
+    if(result.first)
+     {
+        if(result.second.empty())
+        {
+            m_state = ResponseState::DONE_HEADERS;
+        }
+
+        // keep going!
+         return true;
+     }
+
+    // header was incomplete... ask for more.
     return false;
 }
