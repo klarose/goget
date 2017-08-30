@@ -4,17 +4,23 @@
 #include <boost/network/uri.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
+#include <sstream>
+
 namespace po = boost::program_options;
 
 ParseArgs::ParseArgs(int argc, char** argv):
     m_argumentsValid(false)
 {
-    m_args.numChunks = 4;
-    m_args.chunkSize = 1024 * 1024;
+    if(argc > 0)
+    {
+        m_programName = argv[0];
+    }
+
+    m_args.numChunks = cs_defaultNumChunks;
+    m_args.chunkSize = cs_defaultChunkBytes;
 
     if(ParseUrlAndFile(argc, argv))
     {
-        m_args.outFile = m_file;
         m_argumentsValid = DecomposeUrl();
     }
 }
@@ -42,7 +48,7 @@ bool ParseArgs::ParseUrlAndFile(int argc, char** argv)
         ("url", po::value<std::string>(),  "The url to fetch")
         ("chunk-size", po::value<uint64_t>(),  "Size of the chunks to fetch")
         ("num-chunks", po::value<uint64_t>(),  "The number of chunks to fetch")
-        ("out", po::value<std::string>(),  "The file to write");
+        ("file", po::value<std::string>(),  "The file to write");
 
     po::variables_map vars;
     try
@@ -63,7 +69,7 @@ bool ParseArgs::ParseUrlAndFile(int argc, char** argv)
         return false;
     }
 
-    if(vars.count("out") != 1)
+    if(vars.count("file") != 1)
     {
         m_errorMsg = "Exactly one output file must be provided.";
         return false;
@@ -80,7 +86,7 @@ bool ParseArgs::ParseUrlAndFile(int argc, char** argv)
     }
     // parse out the url so we can build the argument struct
     m_url = vars["url"].as<std::string>();
-    m_file = vars["out"].as<std::string>();
+    m_args.outFile = vars["file"].as<std::string>();
 
     return true;
 }
@@ -101,7 +107,6 @@ bool ParseArgs::DecomposeUrl()
         return false;
     }
 
-    m_args.url = m_url;
     m_args.hostName = toGet.host();
 
     // get the optional port
@@ -121,4 +126,19 @@ bool ParseArgs::DecomposeUrl()
     }
 
     return true;
+}
+
+std::string ParseArgs::GetUsage() const
+{
+    std::ostringstream usage;
+    usage << "Usage: " << m_programName << " --url <url_to_fetch> --file <output_file> [options]\n";
+    usage << "Options:\n";
+    usage << "\t--url\tThe url to go and get. Required.\n";
+    usage << "\t--file\tThe file to output to. Required.\n";
+    usage << "\t--num-chunks\tThe number of chunks of data to fetch. Default "
+          << cs_defaultNumChunks << ".\n";
+    usage << "\t--chunks-size\tThe size of each chunk in bytes. Default " 
+          << cs_defaultChunkBytes << ".\n";
+
+    return usage.str();
 }

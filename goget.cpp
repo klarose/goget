@@ -11,12 +11,11 @@ int main(int argc, char** argv)
     if(!parser.AreArgsValid())
     {
         printf("Error parsing command line: %s\n", parser.GetErrorMessage().c_str());
-        exit(1);
+        printf("%s", parser.GetUsage().c_str());
+        return -1;
     }
 
     const CmdLineArgs& args = parser.GetParsedArgs();
-
-    printf("Url: %s\n", args.url.c_str());
 
     printf("Getting '%s' from '%s' port '%s', writing to '%s'\n",
             args.pathToFetch.c_str(),
