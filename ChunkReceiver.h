@@ -55,7 +55,7 @@ private:
     //! Used to parse and process the async stream..
     HttpResponseStreamer m_httpResponse;
 
-    //! The fd on which we're performing the http transaction. Will be -1 if
+    //! The fd on which we're performing the http transaction. Will be < 0 if
     //! it is not open.
     int m_socketFd;
 
@@ -69,5 +69,8 @@ private:
     //! Flag to allow us to control logging the first error we encounter. Set
     //! to true if the error has been logged.
     bool m_loggedError;
+
+    //! Whether we've encountered an error processing the response
+    bool m_hadError;
 };
 #endif // CHUNK_RECEIVER_H

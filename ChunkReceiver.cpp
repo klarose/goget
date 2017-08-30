@@ -17,7 +17,8 @@ ChunkReceiver::ChunkReceiver(const CmdLineArgs& args,
     m_httpResponse(m_stream),
     m_socketFd(-1),
     m_receiveBuffer(16384),
-    m_loggedError(false)
+    m_loggedError(false),
+    m_hadError(false)
 {
 }
 
@@ -35,6 +36,8 @@ bool ChunkReceiver::ConnectAndSendRequest()
     {
         return false;
     }
+
+    // build the range request given the input parameters then send it.
     uint64_t start = m_fileOffset;
     uint64_t end = m_fileOffset + m_args.chunkSize - 1;
 
@@ -68,8 +71,20 @@ void ChunkReceiver::ProcessResponse()
         return;
     }
 
+    // receive some data
     int received = 0;
     received = recv(m_socketFd, &m_receiveBuffer[0], m_receiveBuffer.size(), 0);
+
+    if(received < 0)
+    {
+        perror("recv");
+        m_hadError = true;
+        return;
+    }
+
+    // process the data we've received. If the response stream is finished with
+    // its headers, move on to the data streaming.
+
     m_stream.ProduceData(std::string(&m_receiveBuffer[0], received));
 
     while(!m_httpResponse.HasError() && !m_httpResponse.HeadersDone())
@@ -99,15 +114,17 @@ void ChunkReceiver::ProcessResponse()
 
 bool ChunkReceiver::IsDone() const
 {
-    return m_httpResponse.HasError() || m_httpResponse.IsComplete();
+    return m_hadError || m_httpResponse.HasError() || m_httpResponse.IsComplete();
 }
 
 bool ChunkReceiver::ConnectToURI()
 {
+    // use getaddrinfo to get the necessary information for our connect call, resolve
+    // the host name, etc.
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
-	hints.ai_socktype = SOCK_STREAM; /* Datagram socket */
+	hints.ai_socktype = SOCK_STREAM; /* Streaming */
 	hints.ai_flags = 0;
 	hints.ai_protocol = 0;          /* Any protocol */
 

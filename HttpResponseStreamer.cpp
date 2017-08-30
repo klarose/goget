@@ -9,6 +9,8 @@ HttpResponseStreamer::HttpResponseStreamer(AsyncResponseStream& stream):
 
 bool HttpResponseStreamer::HandleNewData()
 {
+    // Based on where we are in the response parsing, consume some data from
+    // the response stream.
     switch(m_state)
     {
         case ResponseState::INIT:
@@ -61,6 +63,8 @@ bool HttpResponseStreamer::IsComplete() const
 
 std::string HttpResponseStreamer::GetDataChunk()
 {
+    // Grab a chunk of data and return it. If we have as much data as the
+    // headers indicated would be in the response, we're done.
     std::string chunk = m_stream.ReadRawData();
     m_dataRead += chunk.size();
 
@@ -79,6 +83,7 @@ const std::string& HttpResponseStreamer::GetError() const
 
 bool HttpResponseStreamer::HandleInit()
 {
+    // parse out the version. Ignore it for now.
     std::pair<bool, std::string> result = m_stream.ReadUntil(" ");
     if(result.first)
     {
@@ -91,6 +96,8 @@ bool HttpResponseStreamer::HandleInit()
 
 bool HttpResponseStreamer::HandleVersion()
 {
+    // Parse out the response code. If it's not 206 we don't want it; we're only
+    // handling partial content for now!
     std::pair<bool, std::string> result = m_stream.ReadUntil(" ");
     if(result.first)
     {
