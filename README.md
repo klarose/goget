@@ -31,6 +31,12 @@ To run, you may need to install the following runtime libraries:
 The application requires two command line arguments:
  * --url _http-url_: The URL to fetch
  * --file _filename_: Where to place the data fetched from _http-url_.
+ * --num-chunks _num-chunks_: The number of chunks to download. Each chunk is of size _chunk-size_. Defaults to 4.
+ * --chunk-size _chunk-size_: The size of each chunk in bytes. Defaults to 1048576.
+
+The total size off the download will be the minumum of:
+ * _num-chunks_ * _chunk-size_ in bytes
+ * The size of the file on the server.
 
 ## How it works
 
@@ -54,7 +60,7 @@ The application operates in three phases.
 
 ## Limitations
  * The application does not support HTTPS
- * The application does not support redirects, or really, anything other than partial content responses
+ * The application does not support redirects, or really anything other than partial content responses
  * The application has limited error handling (e.g. it may hang if a connection is closed prior to the down completing).
  * The application cannot determine the size of the file to be downloaded. It will download as much as you tell it to,
    or as much as exists on the server if you tell it to download more than its size.

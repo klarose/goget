@@ -137,7 +137,7 @@ std::string ParseArgs::GetUsage() const
     usage << "\t--file\tThe file to output to. Required.\n";
     usage << "\t--num-chunks\tThe number of chunks of data to fetch. Default "
           << cs_defaultNumChunks << ".\n";
-    usage << "\t--chunks-size\tThe size of each chunk in bytes. Default " 
+    usage << "\t--chunk-size\tThe size of each chunk in bytes. Default " 
           << cs_defaultChunkBytes << ".\n";
 
     return usage.str();
