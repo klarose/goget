@@ -31,6 +31,8 @@ To run, you may need to install the following runtime libraries:
 The application requires two command line arguments:
  * --url _http-url_: The URL to fetch
  * --file _filename_: Where to place the data fetched from _http-url_.
+
+It has two optional arguments to control the size and parallelism of the download:
  * --num-chunks _num-chunks_: The number of chunks to download. Each chunk is of size _chunk-size_. Defaults to 4.
  * --chunk-size _chunk-size_: The size of each chunk in bytes. Defaults to 1048576.
 
@@ -55,7 +57,15 @@ The application operates in three phases.
  * Repeats until all chunks are complete
 
 ### Design
+#### Approach
+One of the goals of goget is to download the requested file quickly. To do so, goget breaks the request
+into multiple chunks. goget streams each chunk over a separate tcp connection, which can increase the throughput under certain circumstances.
 
+goget is single threaded for simplicity. Further, it uses blocking sockets. This does not mean that the chunks are not downloaded in parallel -- indeed, if one socket blocks waiting for data, the other sockets will continue to receive data into the kernel's receive buffer. Once the blocked socket returns and its data is processed, the application moves on to the other sockets, processing their waiting data.
+
+A more effective approach would have been to use select or epoll. However, for simplicity, blocking sockets did the trick. The overall application was designed with an event driven model in mind. A few approaches could achieve this with some minor refactoring:
+ * Expose the socket fd from ChunkReceiver -- have the main loop use this for epoll/select
+ * Create a new class which owns the connections and hooks them in to select/epoll. When data is available, call back to the associated ChunkReceiver with the data (e.g. have ProcessResponse() take the data as input). This could be further abstracted into a generic callback if desired. Some more thought would need to go in to the send functionality in this case -- how will ChunkReceiver send the request is the socket is owned by something else? We could probably hook that up in a similar fashion -- have epoll let ChunkReceiver know that it can send data, and tell it what was sent.
 
 
 ## Limitations
