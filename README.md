@@ -19,7 +19,7 @@ To build, you may need to install:
  make
  ```
  It will create a 'goget' binary in the current directory.
- Note that libboost-program-options1.61.0 seems to generate a warning with -Wall, so don't be alarmed if ParseArgs.cpp warns.
+ Note that  libcppnetlib-dev seems to generate a warning with -Wall, so don't be alarmed if ParseArgs.cpp warns.
 
 
 ## Running
