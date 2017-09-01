@@ -29,7 +29,7 @@ To run, you may need to install the following runtime libraries:
   * libboost-system1.61.0
 
 The application requires two command line arguments:
- * --url _http-url_: The URL to fetch
+ * --url _http-url_: The URL to fetch. Note: requires 'http://'
  * --file _filename_: Where to place the data fetched from _http-url_.
 
 It has two optional arguments to control the size and parallelism of the download:
@@ -39,6 +39,18 @@ It has two optional arguments to control the size and parallelism of the downloa
 The total size off the download will be the minumum of:
  * _num-chunks_ * _chunk-size_ in bytes
  * The size of the file on the server.
+
+Example:
+
+Fetch two chunks of 100 bytes each from the root of www.cnn.com, and write them to index.html.
+```
+./goget --url http://www.cnn.com --file index.html --num-chunks 2 --chunk-size 100
+Getting '/' from 'www.cnn.com' port '80', writing to 'index.html'
+
+wc -c index.html 
+200 index.html
+
+```
 
 ## How it works
 
@@ -57,7 +69,7 @@ The application operates in three phases.
  * Repeats until all chunks are complete
 
 ### Design
-#### Approach
+#### Approach to Parallell Download
 One of the goals of goget is to download the requested file quickly. To do so, goget breaks the request
 into multiple chunks. goget streams each chunk over a separate tcp connection, which can increase the throughput under certain circumstances.
 
@@ -67,11 +79,38 @@ A more effective approach would have been to use select or epoll. However, for s
  * Expose the socket fd from ChunkReceiver -- have the main loop use this for epoll/select
  * Create a new class which owns the connections and hooks them in to select/epoll. When data is available, call back to the associated ChunkReceiver with the data (e.g. have ProcessResponse() take the data as input). This could be further abstracted into a generic callback if desired. Some more thought would need to go in to the send functionality in this case -- how will ChunkReceiver send the request is the socket is owned by something else? We could probably hook that up in a similar fashion -- have epoll let ChunkReceiver know that it can send data, and tell it what was sent.
 
+Each chunk performs its own dns request to get connect to the server. This means that there is a chance that each chunk comes from a different source, particularly if the host is doing dns load balancing. This has some disadvantages and advantages:
+
+Good:
+ * Less load is placed on a given host
+Bad:
+ * If the host isn't serving up consistent data, the file could be corrupted. This shouldn't happen, but who knows with these crazy web 2.0 servers. :)
+ * If the DNS server is slow, it could slow down the initial connection.
+
+#### IO
+
+The application streams data as much as possible. This means that if it no longer needs received data, it discards it. This can be either because it has consumed it and gleaned whatever it needs from the data, or because it has already written it to disk. Doing this means that the application likely won't consume much memory, regardless of the size of the file.
+
+Since the application is streaming data, it needs to write to disk whenever it gets data. Since each chunk is streaming independently, this means that the writer will need to seek to the appropriate spot in the file every time it writes -- there is no guarantee that the file offset will be where the writer left it. This has the disadvantage of potentially causing the disk to thrash around a bit. But, it's good enough for this application. Some improvements could be made by increasing the memory use of the application and only flushing to disk when a certain amount of data is ready to be written.
+
+#### Execution
+The program starts in goget.cpp, which drives the main execution, as follows.
+
+* It delegates argument parsing to ParseArgs.
+* If the arguments are bad, it errors out
+* Otherwise, it creates one ChunkReceiver per requested chunk, and sends the request to the host.
+* Once the requests have been succesfully sent, it opens the output file, truncating it.
+* If one of the requests fails, it errors out.
+* It then tells each ChunkReceiver to process the response, which will either process the response
+  header as it comes in, or stream data to the file depending on how far along it is.
+* Once everything is done, the program exists.
+
+ChunkReceiver delegates much of its responsibility to other classes, which are documented in the source.
 
 ## Limitations
  * The application does not support HTTPS
  * The application does not support redirects, or really anything other than partial content responses
- * The application has limited error handling (e.g. it may hang if a connection is closed prior to the down completing).
+ * The application has limited error handling (e.g. it may hang if a connection is closed prior to the download completing).
  * The application cannot determine the size of the file to be downloaded. It will download as much as you tell it to,
    or as much as exists on the server if you tell it to download more than its size.
  * The application doesn't check whether the file you provided to write to can actually be opened. Make sure it is writeable
